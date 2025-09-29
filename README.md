@@ -9,6 +9,10 @@ MH4510 (Statistical Learning and Data Mining)
 
 Only audio files used from - https://zenodo.org/record/1188976
 
+# .gitignore
+
+- Audio files
+
 # Team members
 
 1. Alina Xia
