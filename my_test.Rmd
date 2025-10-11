@@ -1,0 +1,29 @@
+---
+title: "MH4510 Project Test"
+author: "Chin Ao-Wen"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r}
+install.packages("reticulate")
+library(reticulate)
+```
+
+```{r}
+np = import("numpy")
+```
+
+```{r}
+X_classical_train = np$load("X_classical_train.npy")
+X_classical_val = np$load("X_classical_val.npy")
+y_classical_train = np$load("y_classical_train.npy")
+y_classical_val = np$load("y_classical_val.npy")
+```
+
+```{r}
+
+```
+

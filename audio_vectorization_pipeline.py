@@ -17,7 +17,7 @@ TEST_SIZE = 0.15   # 15% test
 VAL_SIZE = 0.15    # 15% validation (relative to total)
 WINDOW_SIZE = 25/1000   # 25ms (change to test different settings)
 STEP_SIZE = 10/1000     # 10ms (change as test different settings)
-EXTRACT_TEST_SET = False    # whether test set is needed
+EXTRACT_TEST_SET = True    # whether test set is needed
 SEED = 42
 
 start_time = time.time()
@@ -46,9 +46,11 @@ train_files, val_files = train_test_split(
 
 splits = {
     "train": train_files,
-    "val": val_files,
-    "test": test_files
+    "val": val_files
 }
+
+if EXTRACT_TEST_SET:
+    splits["test"] = test_files
 
 print(f"Split sizes: train={len(train_files)}, val={len(val_files)}, test={len(test_files)}")
 
@@ -77,12 +79,19 @@ def extract_features(file_list, base_dir=BASE_DIR, n_mfcc=N_MFCC):
             hop_length=int(STEP_SIZE*sr) # 10ms step 
         )
 
+        # Compute delta and double-delta 
+        delta = librosa.feature.delta(mfcc)
+        delta2 = librosa.feature.delta(mfcc, order=2)
+
+        # Stack all features
+        mfcc_combined = np.vstack([mfcc, delta, delta2])
+
         # Classical ML: average across time
-        mfcc_mean = np.mean(mfcc, axis=1)
+        mfcc_mean = np.mean(mfcc_combined, axis=1)
         mfcc_features.append(mfcc_mean)
 
         # Deep Learning: keep full sequence
-        mfcc_sequences.append(mfcc.T)
+        mfcc_sequences.append(mfcc_combined.T)
 
         # Label
         emotion = labels_df.set_index("file_name").loc[file, "Emotion"]
@@ -98,51 +107,45 @@ def extract_features(file_list, base_dir=BASE_DIR, n_mfcc=N_MFCC):
     return X_classical, y_classical, X_deep, y_deep
 
 # ----------------------------
-# EXTRACT FEATURES FOR SPLITS
+# EXPORT FUNCTIONS
 # ----------------------------
+def export_classical_to_csv(X, y, split_name):
+    # Define column / feature names
+    feature_names = (
+        [f"mfcc_{i+1}" for i in range(N_MFCC)] + 
+        [f"delta_{i+1}" for i in range(N_MFCC)] + 
+        [f"delta2_{i+1}" for i in range(N_MFCC)]
+    )
+    # Convert array into dataframe
+    df = pd.DataFrame(X, columns=feature_names)
+    # Define the target / output column
+    df["Emotion"] = y
+    # Export as csv
+    df.to_csv(f"classical_{split_name}.csv", index=False)
+    print(f"✅ Saved classical features: classical_{split_name}.csv — shape {df.shape}")
 
-# If test set is not needed yet, remove it from the output so we don't have to extract features
-if not EXTRACT_TEST_SET and "test" in splits:
-    del splits["test"]
+def export_deep_to_npy(X, y, split_name):
+    # Export directly as npy file
+    np.save(f"X_deep_{split_name}.npy", X)
+    np.save(f"y_deep_{split_name}.npy", y)
+    print(f"✅ Saved deep features: X_deep_{split_name}.npy ({X.shape}), y_deep_{split_name}.npy ({y.shape})")
 
-datasets = {}
-
+# ----------------------------
+# MAIN EXTRACTION LOOP
+# ----------------------------
 for split_name, files in splits.items():
     feature_start = time.time()
+    print(f"\n🔸 Extracting features for {split_name} set...")
 
-    print(f"\nExtracting features for {split_name} set...")
     X_classical, y_classical, X_deep, y_deep = extract_features(files)
-    datasets[split_name] = {
-        "X_classical": X_classical,
-        "y_classical": y_classical,
-        "X_deep": X_deep,
-        "y_deep": y_deep
-    }
 
-    # Print time elapsed
-    feature_end = time.time()
-    feature_elapsed = feature_end - feature_start
-    print(f"Feature extraction for {split_name} set took {feature_elapsed:.2f} seconds")
+    # Export datasets for Classical ML (CSV)
+    export_classical_to_csv(X_classical, y_classical, split_name)
 
+    # Export datasets for Deep Learning (npy)
+    export_deep_to_npy(X_deep, y_deep, split_name)
 
-# ----------------------------
-# OUTPUT INFO
-# ----------------------------
-for split, data in datasets.items():
-    print(f"\n{split.upper()} SET")
-    print("  Classical ML:", data["X_classical"].shape, data["y_classical"].shape)
-    print("  Deep Learning:", data["X_deep"].shape, data["y_deep"].shape)
-
-# ----------------------------
-# SAVE DATASETS TO DISK
-# ----------------------------
-if SAVE_TO_DISK:
-    for split, data in datasets.items():
-        np.save(f"X_classical_{split}.npy", data["X_classical"])
-        np.save(f"y_classical_{split}.npy", data["y_classical"])
-        np.save(f"X_deep_{split}.npy", data["X_deep"])
-        np.save(f"y_deep_{split}.npy", data["y_deep"])
-    print("\nDatasets saved to disk.")
+    print(f"⏱️ {split_name} extraction completed in {time.time() - feature_start:.2f}s")
 
 # ----------------------------
 # PRINT PIPELINE TIME ELAPSED
