@@ -19,7 +19,12 @@ WINDOW_SIZE = 25/1000   # 25ms (change to test different settings)
 STEP_SIZE = 10/1000     # 10ms (change as test different settings)
 EXTRACT_TEST_SET = True    # whether test set is needed
 SEED = 42
+OUTPUT_DIR = "datasets"
 
+# Create output folder if doesn't already exist
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Start time capture
 start_time = time.time()
 
 # ----------------------------
@@ -120,14 +125,18 @@ def export_classical_to_csv(X, y, split_name):
     df = pd.DataFrame(X, columns=feature_names)
     # Define the target / output column
     df["Emotion"] = y
+    # Define folder to save
+    csv_path = os.path.join(OUTPUT_DIR, f"classical_{split_name}.csv")
     # Export as csv
-    df.to_csv(f"classical_{split_name}.csv", index=False)
+    df.to_csv(csv_path, index=False)
     print(f"✅ Saved classical features: classical_{split_name}.csv — shape {df.shape}")
 
 def export_deep_to_npy(X, y, split_name):
+    X_path = os.path.join(OUTPUT_DIR, f"X_deep_{split_name}.npy")
+    y_path = os.path.join(OUTPUT_DIR, f"y_deep_{split_name}.npy")
     # Export directly as npy file
-    np.save(f"X_deep_{split_name}.npy", X)
-    np.save(f"y_deep_{split_name}.npy", y)
+    np.save(X_path, X)
+    np.save(y_path, y)
     print(f"✅ Saved deep features: X_deep_{split_name}.npy ({X.shape}), y_deep_{split_name}.npy ({y.shape})")
 
 # ----------------------------
